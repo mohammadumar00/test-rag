@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import type { OllamaClientOptions } from "../clients/ollama.js";
 import type { QdrantClientOptions } from "../clients/qdrant.js";
+import { evaluateRetrieval } from "../evaluation/retrieval-evaluator.js";
 import { generateAnswer } from "../rag/generator.js";
 import { buildGroundedPrompt } from "../rag/prompt-builder.js";
 import { embedQuery } from "../rag/query-embedder.js";
@@ -21,6 +22,20 @@ export interface ChatRouterOptions {
 /** Creates the public RAG endpoint: question → retrieve → grounded generation → sources. */
 export function createChatRouter(options: ChatRouterOptions): Router {
   const router = Router();
+
+  router.get("/evaluation", async (_request, response) => {
+    try {
+      const evaluation = await evaluateRetrieval({
+        embedding: options.embedding,
+        qdrant: options.qdrant,
+        retrievalLimit: options.retrievalLimit,
+      });
+      response.status(200).json(evaluation);
+    } catch (error) {
+      console.error("Retrieval evaluation failed.", error);
+      response.status(502).json({ error: "The local retrieval services are unavailable or returned an invalid response." });
+    }
+  });
 
   router.post("/chat", async (request, response) => {
     const question = questionFromRequest(request, response);
