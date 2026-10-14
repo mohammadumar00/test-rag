@@ -1,0 +1,14 @@
+node_modules/
+.npm-cache/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+!.env.example
+*.log
+*.tsbuildinfo
+.DS_Store
+data/
+qdrant_storage/
+vite.config.*.timestamp-*

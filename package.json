@@ -1,0 +1,24 @@
+{
+  "name": "react-rag-poc",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/indexer",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:indexer": "npm run dev --workspace=@react-rag/indexer",
+    "dev:api": "npm run dev --workspace=@react-rag/api",
+    "dev:web": "npm run dev --workspace=@react-rag/web",
+    "start:indexer": "npm run start --workspace=@react-rag/indexer",
+    "start:api": "npm run start --workspace=@react-rag/api",
+    "build": "npm run build --workspace=@react-rag/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
