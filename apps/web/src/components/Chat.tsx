@@ -5,17 +5,12 @@ const SUGGESTED_QUESTIONS = ["What does useState return?", "When does useEffect 
 
 interface Source { readonly reference: number; readonly title: string; readonly section: string; readonly url: string; readonly score: number; readonly excerpt: string; }
 interface Exchange { readonly id: number; readonly question: string; readonly answer: string; readonly sources: readonly Source[]; }
-interface EvaluationResult { readonly question: string; readonly expectedDocument: string; readonly hit: boolean; readonly rank: number | null; readonly topMatch: { readonly title: string; readonly section: string; readonly score: number } | null; }
-interface RetrievalEvaluation { readonly total: number; readonly hits: number; readonly hitRate: number; readonly topK: number; readonly results: readonly EvaluationResult[]; }
 
 function Chat() {
   const [question, setQuestion] = useState("");
   const [exchanges, setExchanges] = useState<readonly Exchange[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [evaluation, setEvaluation] = useState<RetrievalEvaluation | null>(null);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [evaluationError, setEvaluationError] = useState<string | null>(null);
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -38,23 +33,6 @@ function Chat() {
       setError(caughtError instanceof Error ? caughtError.message : "The assistant could not answer right now.");
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function runEvaluation(): Promise<void> {
-    if (isEvaluating) return;
-
-    setIsEvaluating(true);
-    setEvaluationError(null);
-    try {
-      const response = await fetch(`${API_URL}/api/evaluation`);
-      const payload = (await response.json().catch(() => null)) as unknown;
-      if (!response.ok) throw new Error(errorFromResponse(payload) ?? "The retrieval evaluation could not run right now.");
-      setEvaluation(parseEvaluation(payload));
-    } catch (caughtError) {
-      setEvaluationError(caughtError instanceof Error ? caughtError.message : "The retrieval evaluation could not run right now.");
-    } finally {
-      setIsEvaluating(false);
     }
   }
 
@@ -104,22 +82,6 @@ function Chat() {
         <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask a question about React…" rows={3} maxLength={2000} disabled={isLoading} />
         <div className="chat__form-footer"><span>Answers use only indexed documentation.</span><button type="submit" disabled={!question.trim() || isLoading}>{isLoading ? "Thinking…" : "Ask"}</button></div>
       </form>
-      <section className="evaluation" aria-label="Retrieval quality evaluation">
-        <div className="evaluation__intro">
-          <div><span>Quality check</span><h2>Retrieval hit rate</h2><p>Checks whether the expected React document appears in the top retrieved chunks for six known questions.</p></div>
-          <button type="button" onClick={runEvaluation} disabled={isEvaluating}>{isEvaluating ? "Measuring…" : evaluation ? "Run again" : "Measure retrieval"}</button>
-        </div>
-        {evaluationError && <p className="evaluation__error" role="alert">{evaluationError}</p>}
-        {evaluation && <>
-          <div className="evaluation__summary"><div><strong>{Math.round(evaluation.hitRate)}%</strong><span>Hit rate</span></div><div><strong>{evaluation.hits}/{evaluation.total}</strong><span>Correct document found</span></div><div><strong>Top {evaluation.topK}</strong><span>Chunks evaluated</span></div></div>
-          <div className="evaluation__results">
-            {evaluation.results.map((result) => <div className={`evaluation-result ${result.hit ? "evaluation-result--hit" : "evaluation-result--miss"}`} key={result.question}>
-              <span className="evaluation-result__status">{result.hit ? "✓ Hit" : "× Miss"}</span>
-              <div><p>{result.question}</p><small>Expected: <b>{result.expectedDocument}</b>{result.hit ? ` · found at rank ${result.rank}` : result.topMatch ? ` · top result: ${result.topMatch.title} / ${result.topMatch.section}` : " · no result"}</small></div>
-            </div>)}
-          </div>
-        </>}
-      </section>
     </section>
   );
 }
@@ -131,12 +93,6 @@ function parseChatResponse(payload: unknown): { answer: string; sources: Source[
 }
 
 function errorFromResponse(payload: unknown): string | undefined { return isRecord(payload) && typeof payload.error === "string" ? payload.error : undefined; }
-function parseEvaluation(payload: unknown): RetrievalEvaluation {
-  if (!isRecord(payload) || typeof payload.total !== "number" || typeof payload.hits !== "number" || typeof payload.hitRate !== "number" || typeof payload.topK !== "number" || !Array.isArray(payload.results)) throw new Error("The evaluation API returned an unexpected response.");
-  return { total: payload.total, hits: payload.hits, hitRate: payload.hitRate, topK: payload.topK, results: payload.results.flatMap((result) => isEvaluationResult(result) ? [result] : []) };
-}
-function isEvaluationResult(value: unknown): value is EvaluationResult { return isRecord(value) && typeof value.question === "string" && typeof value.expectedDocument === "string" && typeof value.hit === "boolean" && (typeof value.rank === "number" || value.rank === null) && (value.topMatch === null || isTopMatch(value.topMatch)); }
-function isTopMatch(value: unknown): value is { title: string; section: string; score: number } { return isRecord(value) && typeof value.title === "string" && typeof value.section === "string" && typeof value.score === "number"; }
 function isSource(value: unknown): value is Source { return isRecord(value) && typeof value.reference === "number" && typeof value.title === "string" && typeof value.section === "string" && typeof value.url === "string" && typeof value.score === "number" && typeof value.excerpt === "string"; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 
